@@ -1,0 +1,154 @@
+using Azure.Identity;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using PhoneticAnalyzers.Application.Services.Phonetic;
+using PhoneticAnalyzers.Domain.Repositories;
+using PhoneticAnalyzers.Infrastructure.Persistence;
+using PhoneticAnalyzers.Infrastructure.Persistence.Repositories;
+using Polly;
+using Polly.Extensions.Http;
+using System.Reflection;
+
+var host = new HostBuilder()
+    .ConfigureFunctionsWebApplication()
+    .ConfigureAppConfiguration((context, config) =>
+    {
+        var environment = context.HostingEnvironment.EnvironmentName;
+        
+        config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+              .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
+              .AddEnvironmentVariables();
+
+        // Add Azure Key Vault if not in development
+        if (!context.HostingEnvironment.IsDevelopment())
+        {
+            var keyVaultUrl = Environment.GetEnvironmentVariable("KeyVaultUrl");
+            if (!string.IsNullOrEmpty(keyVaultUrl))
+            {
+                config.AddAzureKeyVault(new Uri(keyVaultUrl), new DefaultAzureCredential());
+            }
+        }
+    })
+    .ConfigureServices((context, services) =>
+    {
+        // Application Insights
+        services.AddApplicationInsightsTelemetryWorkerService();
+        services.ConfigureFunctionsApplicationInsights();
+
+        // Database context
+        var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
+                            ?? throw new InvalidOperationException("Database connection string is required");
+
+        services.AddDbContext<PhoneticAnalyzersDbContext>(options =>
+        {
+            options.UseNpgsql(connectionString, npgsqlOptions =>
+            {
+                npgsqlOptions.MigrationsAssembly(typeof(PhoneticAnalyzersDbContext).Assembly.FullName);
+                npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorCodesToAdd: null);
+            });
+
+            if (context.HostingEnvironment.IsDevelopment())
+            {
+                options.EnableSensitiveDataLogging();
+                options.EnableDetailedErrors();
+            }
+        });
+
+        // Repositories
+        services.AddScoped<IPersonRepository, PersonRepository>();
+
+        // Phonetic encoding services
+        services.AddSingleton<DoubleMetaphoneEncoder>();
+        services.AddSingleton<BeiderMorseEncoder>();
+        services.AddSingleton<IPhoneticEncoderFactory, PhoneticEncoderFactory>();
+        services.AddScoped<IPhoneticEncodingService, PhoneticEncodingService>();
+        services.AddSingleton<INicknameService, InMemoryNicknameService>();
+
+        // HTTP Client with retry policy
+        services.AddHttpClient("RetryClient")
+            .AddPolicyHandler(GetRetryPolicy());
+
+        // Health checks
+        services.AddHealthChecks()
+            .AddDbContextCheck<PhoneticAnalyzersDbContext>("database")
+            .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Function app is healthy"));
+
+        // MediatR for CQRS
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService).Assembly));
+
+        // Logging configuration
+        services.Configure<LoggerFilterOptions>(options =>
+        {
+            // Remove default console logger rule
+            var defaultRule = options.Rules.FirstOrDefault(rule => rule.ProviderName == "Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider");
+            if (defaultRule is not null)
+            {
+                options.Rules.Remove(defaultRule);
+            }
+        });
+    })
+    .ConfigureLogging((context, logging) =>
+    {
+        logging.ClearProviders();
+        
+        if (context.HostingEnvironment.IsDevelopment())
+        {
+            logging.AddConsole();
+            logging.SetMinimumLevel(LogLevel.Debug);
+        }
+        else
+        {
+            logging.SetMinimumLevel(LogLevel.Information);
+        }
+
+        // Add structured logging
+        logging.AddJsonConsole(options =>
+        {
+            options.IncludeScopes = true;
+            options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+        });
+    })
+    .Build();
+
+// Ensure database is created and migrated
+using (var scope = host.Services.CreateScope())
+{
+    try
+    {
+        var context = scope.ServiceProvider.GetRequiredService<PhoneticAnalyzersDbContext>();
+        await context.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating the database");
+        throw;
+    }
+}
+
+await host.RunAsync();
+
+/// <summary>
+/// Gets the retry policy for HTTP clients
+/// </summary>
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+            onRetry: (outcome, timespan, retryCount, context) =>
+            {
+                var logger = context.GetLogger();
+                logger?.LogWarning("Retry {RetryCount} for {OperationKey} in {Delay}ms", 
+                    retryCount, context.OperationKey, timespan.TotalMilliseconds);
+            });
+}
