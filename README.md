@@ -428,13 +428,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For questions or support:
-- 📧 Email: support@yourcompany.com
-- 💬 Teams: Engineering Team Channel
-- 🐛 Issues: GitHub Issues tab
-- 📖 Wiki: Internal documentation portal
-
----
-
-**Built with ❤️ by the Engineering Team**
+- 📧 Email: mahanteshpujar1009t@gmail.com
 
 *This solution demonstrates production-ready Azure PaaS architecture with modern development practices, comprehensive testing, and enterprise-grade security.*
