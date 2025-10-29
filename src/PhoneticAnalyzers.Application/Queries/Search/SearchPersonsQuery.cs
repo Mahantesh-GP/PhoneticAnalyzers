@@ -185,6 +185,9 @@ public sealed class PersonPhoneticCodes
 /// </summary>
 public sealed class SearchPersonsQueryValidator : AbstractValidator<SearchPersonsQuery>
 {
+    /// <summary>
+    /// Initializes a new instance of the SearchPersonsQueryValidator class
+    /// </summary>
     public SearchPersonsQueryValidator()
     {
         RuleFor(x => x.QueryName)
@@ -295,6 +298,9 @@ public sealed class PersonDetails
 /// </summary>
 public sealed class GetPersonDetailsQueryValidator : AbstractValidator<GetPersonDetailsQuery>
 {
+    /// <summary>
+    /// Initializes a new instance of the GetPersonDetailsQueryValidator class
+    /// </summary>
     public GetPersonDetailsQueryValidator()
     {
         RuleFor(x => x.ExternalId)

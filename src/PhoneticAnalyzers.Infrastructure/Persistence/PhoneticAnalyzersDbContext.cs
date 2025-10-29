@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using PhoneticAnalyzers.Domain.Entities;
 using PhoneticAnalyzers.Infrastructure.Persistence.Configurations;
 using System.Reflection;
@@ -178,6 +179,9 @@ public sealed class PhoneticAnalyzersDbContext : DbContext
 /// </summary>
 public sealed class PhoneticAnalyzersDbContextFactory : IDesignTimeDbContextFactory<PhoneticAnalyzersDbContext>
 {
+    /// <summary>
+    /// Creates a new instance of PhoneticAnalyzersDbContext for design-time operations
+    /// </summary>
     public PhoneticAnalyzersDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<PhoneticAnalyzersDbContext>();

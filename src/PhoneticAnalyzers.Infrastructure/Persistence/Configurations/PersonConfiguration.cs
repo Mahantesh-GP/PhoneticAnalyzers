@@ -10,6 +10,9 @@ namespace PhoneticAnalyzers.Infrastructure.Persistence.Configurations;
 /// </summary>
 public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
 {
+    /// <summary>
+    /// Configures the Person entity mapping
+    /// </summary>
     public void Configure(EntityTypeBuilder<Person> builder)
     {
         builder.ToTable("person");
@@ -120,6 +123,9 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
 /// </summary>
 public sealed class BeiderMorseVariantConfiguration : IEntityTypeConfiguration<BeiderMorseVariant>
 {
+    /// <summary>
+    /// Configures the BeiderMorseVariant entity mapping
+    /// </summary>
     public void Configure(EntityTypeBuilder<BeiderMorseVariant> builder)
     {
         builder.ToTable("person_bm");
@@ -139,7 +145,7 @@ public sealed class BeiderMorseVariantConfiguration : IEntityTypeConfiguration<B
             .IsRequired()
             .HasConversion(
                 code => code.Value,
-                value => PhoneticCode.Create(value, PhoneticAlgorithmType.BeiderMorse));
+                value => PhoneticCode.Create(value, PhoneticAlgorithmType.BeiderMorse, false));
 
         // First letter (computed column)
         builder.Property(bm => bm.FirstLetter)

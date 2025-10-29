@@ -9,12 +9,11 @@ using PhoneticAnalyzers.Application.Services.Phonetic;
 using PhoneticAnalyzers.Domain.Repositories;
 using PhoneticAnalyzers.Infrastructure.Persistence;
 using PhoneticAnalyzers.Infrastructure.Persistence.Repositories;
-using Polly;
-using Polly.Extensions.Http;
+
 using System.Reflection;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWebApplication()
+    .ConfigureFunctionsWorkerDefaults()
     .ConfigureAppConfiguration((context, config) =>
     {
         var environment = context.HostingEnvironment.EnvironmentName;
@@ -71,9 +70,8 @@ var host = new HostBuilder()
         services.AddScoped<IPhoneticEncodingService, PhoneticEncodingService>();
         services.AddSingleton<INicknameService, InMemoryNicknameService>();
 
-        // HTTP Client with retry policy
-        services.AddHttpClient("RetryClient")
-            .AddPolicyHandler(GetRetryPolicy());
+        // HTTP Client (retry policy can be added later)
+        services.AddHttpClient("RetryClient");
 
         // Health checks
         services.AddHealthChecks()
@@ -135,20 +133,3 @@ using (var scope = host.Services.CreateScope())
 
 await host.RunAsync();
 
-/// <summary>
-/// Gets the retry policy for HTTP clients
-/// </summary>
-static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
-{
-    return HttpPolicyExtensions
-        .HandleTransientHttpError()
-        .WaitAndRetryAsync(
-            retryCount: 3,
-            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-            onRetry: (outcome, timespan, retryCount, context) =>
-            {
-                var logger = context.GetLogger();
-                logger?.LogWarning("Retry {RetryCount} for {OperationKey} in {Delay}ms", 
-                    retryCount, context.OperationKey, timespan.TotalMilliseconds);
-            });
-}

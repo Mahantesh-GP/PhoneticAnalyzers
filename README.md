@@ -2,6 +2,14 @@
 
 A production-ready, scalable Azure PaaS solution for high-performance phonetic name search and matching. This solution can handle over 1.36 billion names with low-latency search capabilities using Double Metaphone and Beider-Morse phonetic algorithms.
 
+## 🚀 **New to this project?** 
+👉 **[START HERE](START_HERE.md)** 👈
+
+## 📚 **Quick Links**
+- **🏢 Office/Corporate Setup**: [Azure Cloud Guide](docs/AZURE_SETUP.md) (No Docker)
+- **🏠 Home Development**: [Local Setup Guide](docs/LOCAL_SETUP.md) (With Docker)
+- **⚡ Super Quick Start**: Just run `setup-azure.bat` and choose option 1!
+
 ## 🏗️ Architecture Overview
 
 This solution implements a modern, cloud-native architecture following Clean Architecture and Domain-Driven Design (DDD) principles:

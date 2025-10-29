@@ -97,6 +97,9 @@ public sealed class PhoneticEncodingSummary
 /// </summary>
 public sealed class IngestPersonCommandValidator : AbstractValidator<IngestPersonCommand>
 {
+    /// <summary>
+    /// Initializes a new instance of the IngestPersonCommandValidator class
+    /// </summary>
     public IngestPersonCommandValidator()
     {
         RuleFor(x => x.ExternalId)
@@ -252,6 +255,9 @@ public sealed class BatchItemResult
 /// </summary>
 public sealed class IngestPersonBatchCommandValidator : AbstractValidator<IngestPersonBatchCommand>
 {
+    /// <summary>
+    /// Initializes a new instance of the IngestPersonBatchCommandValidator class
+    /// </summary>
     public IngestPersonBatchCommandValidator()
     {
         RuleFor(x => x.Persons)
@@ -282,6 +288,9 @@ public sealed class IngestPersonBatchCommandValidator : AbstractValidator<Ingest
 /// </summary>
 public sealed class PersonBatchItemValidator : AbstractValidator<PersonBatchItem>
 {
+    /// <summary>
+    /// Initializes a new instance of the PersonBatchItemValidator class
+    /// </summary>
     public PersonBatchItemValidator()
     {
         RuleFor(x => x.ExternalId)

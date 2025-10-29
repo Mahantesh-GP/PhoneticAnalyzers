@@ -329,19 +329,12 @@ public sealed class PersonRepository : IPersonRepository
         CancellationToken cancellationToken)
     {
         // Use PostgreSQL's trigram similarity
-        var sql = @"
-            SELECT p.*, similarity(p.normalized_name, {0}) as sim_score
-            FROM person p
-            WHERE p.normalized_name % {1} 
-              AND similarity(p.normalized_name, {2}) >= {3}
-            ORDER BY sim_score DESC, p.full_name
-            LIMIT {4}";
-
         // Note: In a real implementation, you would use FromSqlRaw with parameters
+        // For now, using LIKE similarity as a placeholder
         // This is simplified for demonstration
         var similarMatches = await _context.Persons
             .Include(p => p.BeiderMorseVariants)
-            .Where(p => EF.Functions.TrigramsSimilar(p.NormalizedName.Value, searchCriteria.QueryName.Value))
+            .Where(p => EF.Functions.Like(p.NormalizedName.Value, $"%{searchCriteria.QueryName.Value}%"))
             .OrderByDescending(p => EF.Functions.TrigramsWordSimilarity(p.NormalizedName.Value, searchCriteria.QueryName.Value))
             .Take(searchCriteria.MaxResults)
             .ToListAsync(cancellationToken);
