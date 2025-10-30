@@ -8,6 +8,7 @@ A production-ready, scalable Azure PaaS solution for high-performance phonetic n
 ## 📚 **Quick Links**
 - **🏢 Office/Corporate Setup**: [Azure Cloud Guide](docs/AZURE_SETUP.md) (No Docker)
 - **🏠 Home Development**: [Local Setup Guide](docs/LOCAL_SETUP.md) (With Docker)
+- **🖥️ Web UI Interface**: [Blazor Web Application](Web/README.md) (Modern Web UI)
 - **⚡ Super Quick Start**: Just run `setup-azure.bat` and choose option 1!
 
 ## 🏗️ Architecture Overview
@@ -80,7 +81,29 @@ This solution implements a modern, cloud-native architecture following Clean Arc
 - **Key Management**: Azure Key Vault integration
 - **Compliance**: SOC 2, GDPR-ready with audit logging
 
-## 📁 Project Structure
+## �️ Web User Interface
+
+### Modern Blazor Web Application
+A comprehensive **Blazor Server** web interface provides an intuitive way to interact with the PhoneticAnalyzers system:
+
+**🎨 Key UI Features:**
+- **📊 Dashboard**: Real-time system health, statistics, and quick actions
+- **🔍 Advanced Search**: Live phonetic name search with similarity scoring
+- **👥 Person Management**: Individual person entry with form validation and phonetic code preview
+- **📤 Batch Operations**: Bulk import via file upload (CSV/JSON) or manual entry
+- **📱 Responsive Design**: Bootstrap 5 with modern styling, works on all devices
+- **⚡ Real-time Updates**: SignalR integration for live status monitoring
+
+**🏗️ Technical Stack:**
+- **.NET 8 Blazor Server**: Server-side rendering with SignalR
+- **Bootstrap 5**: Modern responsive UI framework
+- **HttpClient Integration**: Direct communication with Functions API
+- **Component Architecture**: Reusable UI components with clean separation
+- **Azure App Service**: Seamless deployment alongside Functions API
+
+**📖 Full Documentation**: See [Web UI README](Web/README.md) for complete setup and usage instructions.
+
+## �📁 Project Structure
 
 ```
 PhoneticAnalyzers/
@@ -90,6 +113,11 @@ PhoneticAnalyzers/
 │   ├── PhoneticAnalyzers.Infrastructure/   # Infrastructure layer (EF Core, repos)
 │   ├── PhoneticAnalyzers.Functions.Ingestion/  # Ingestion Azure Functions
 │   └── PhoneticAnalyzers.Functions.Search/     # Search API Azure Functions
+├── Web/                                    # Blazor Server Web UI
+│   ├── Components/                         # Blazor components (Pages, Layout, Shared)
+│   ├── Services/                          # API integration services
+│   ├── wwwroot/                           # Static web assets (CSS, JS)
+│   └── README.md                          # Web UI documentation
 ├── tests/
 │   ├── PhoneticAnalyzers.UnitTests/        # Unit tests
 │   └── PhoneticAnalyzers.IntegrationTests/ # Integration tests
@@ -105,10 +133,12 @@ PhoneticAnalyzers/
 ### Core Technologies
 - **.NET 8**: Latest LTS with native AOT support
 - **Azure Functions v4**: Isolated worker model
+- **ASP.NET Core Blazor Server**: Modern web UI framework with SignalR
 - **PostgreSQL 15+**: High-performance database with partitioning
 - **Entity Framework Core 8**: ORM with advanced features
 
 ### Azure Services
+- **Azure App Service**: Web application hosting for Blazor Server UI
 - **Azure Functions**: Serverless compute (Flex Consumption plan)
 - **PostgreSQL Flexible Server**: Managed database with zone redundancy
 - **Event Hubs**: High-throughput event ingestion
