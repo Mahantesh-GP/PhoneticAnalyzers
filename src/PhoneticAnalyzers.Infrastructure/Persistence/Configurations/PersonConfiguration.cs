@@ -66,12 +66,8 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
                 code => code != null ? code.Value : null,
                 value => value != null ? PhoneticCode.Create(value, PhoneticAlgorithmType.DoubleMetaphone, false) : null);
 
-        // First letter (computed column)
-        builder.Property(p => p.FirstLetter)
-            .HasColumnName("first_letter")
-            .HasColumnType("char(1)")
-            .ValueGeneratedOnAddOrUpdate()
-            .HasComputedColumnSql("LEFT(normalized_name, 1)", stored: true);
+        // First letter (computed from normalized name) - ignore since it's computed
+        builder.Ignore(p => p.FirstLetter);
 
         // Partition hash (computed column)
         builder.Property(p => p.PartitionHash)
@@ -96,12 +92,12 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
             .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes for phonetic search
-        builder.HasIndex(p => new { p.PrimaryDoubleMetaphone, p.FirstLetter })
-            .HasDatabaseName("ix_person_dm_primary_first_letter")
+        builder.HasIndex(p => p.PrimaryDoubleMetaphone)
+            .HasDatabaseName("ix_person_dm_primary")
             .HasFilter("dm_primary IS NOT NULL");
 
-        builder.HasIndex(p => new { p.AlternateDoubleMetaphone, p.FirstLetter })
-            .HasDatabaseName("ix_person_dm_alternate_first_letter")
+        builder.HasIndex(p => p.AlternateDoubleMetaphone)
+            .HasDatabaseName("ix_person_dm_alternate")
             .HasFilter("dm_alternate IS NOT NULL");
 
         // Index for trigram similarity search
@@ -147,12 +143,8 @@ public sealed class BeiderMorseVariantConfiguration : IEntityTypeConfiguration<B
                 code => code.Value,
                 value => PhoneticCode.Create(value, PhoneticAlgorithmType.BeiderMorse, false));
 
-        // First letter (computed column)
-        builder.Property(bm => bm.FirstLetter)
-            .HasColumnName("first_letter")
-            .HasColumnType("char(1)")
-            .ValueGeneratedOnAddOrUpdate()
-            .HasComputedColumnSql("LEFT(bm_code, 1)", stored: true);
+        // First letter (computed column) - ignore since it's computed from BeiderMorseCode
+        builder.Ignore(bm => bm.FirstLetter);
 
         // Audit fields
         builder.Property(bm => bm.CreatedUtc)
@@ -165,8 +157,8 @@ public sealed class BeiderMorseVariantConfiguration : IEntityTypeConfiguration<B
             .HasColumnType("timestamp with time zone");
 
         // Index for Beider-Morse search
-        builder.HasIndex(bm => new { bm.BeiderMorseCode, bm.FirstLetter })
-            .HasDatabaseName("ix_person_bm_code_first_letter");
+        builder.HasIndex(bm => bm.BeiderMorseCode)
+            .HasDatabaseName("ix_person_bm_code");
 
         // Foreign key relationship
         builder.HasOne<Person>()
