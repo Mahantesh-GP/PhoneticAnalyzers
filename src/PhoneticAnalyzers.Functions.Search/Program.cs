@@ -1,0 +1,85 @@
+using Azure.Identity;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using PhoneticAnalyzers.Application.Services.Phonetic;
+using PhoneticAnalyzers.Domain.Repositories;
+using PhoneticAnalyzers.Infrastructure.Persistence;
+using PhoneticAnalyzers.Infrastructure.Persistence.Repositories;
+
+namespace PhoneticAnalyzers.Functions.Search;
+
+/// <summary>
+/// Program entry point for the PhoneticAnalyzers Search Function App
+/// </summary>
+public class Program
+{
+    /// <summary>
+    /// Main entry point
+    /// </summary>
+    public static async Task Main()
+    {
+        var host = new HostBuilder()
+            .ConfigureFunctionsWorkerDefaults()
+            .ConfigureAppConfiguration((context, config) =>
+            {
+                var environment = context.HostingEnvironment.EnvironmentName;
+                
+                config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                      .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
+                      .AddEnvironmentVariables();
+            })
+            .ConfigureServices((context, services) =>
+            {
+                // Application Insights
+                services.AddApplicationInsightsTelemetryWorkerService();
+                services.ConfigureFunctionsApplicationInsights();
+
+                // Database context
+                var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
+                                    ?? throw new InvalidOperationException("Database connection string is required");
+
+                services.AddDbContext<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>(options =>
+                {
+                    options.UseNpgsql(connectionString, npgsqlOptions =>
+                    {
+                        npgsqlOptions.MigrationsAssembly(typeof(PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext).Assembly.FullName);
+                        npgsqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: TimeSpan.FromSeconds(5),
+                            errorCodesToAdd: null);
+                    });
+
+                    if (context.HostingEnvironment.IsDevelopment())
+                    {
+                        options.EnableSensitiveDataLogging();
+                        options.EnableDetailedErrors();
+                    }
+                });
+
+                // Repositories
+                services.AddScoped<PhoneticAnalyzers.Domain.Repositories.IPersonRepository, PhoneticAnalyzers.Infrastructure.Persistence.Repositories.PersonRepository>();
+
+                // Phonetic encoding services
+                services.AddSingleton<PhoneticAnalyzers.Application.Services.Phonetic.DoubleMetaphoneEncoder>();
+                services.AddSingleton<PhoneticAnalyzers.Application.Services.Phonetic.BeiderMorseEncoder>();
+                services.AddSingleton<PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncoderFactory, PhoneticAnalyzers.Application.Services.Phonetic.PhoneticEncoderFactory>();
+                services.AddScoped<PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService, PhoneticAnalyzers.Application.Services.Phonetic.PhoneticEncodingService>();
+                services.AddSingleton<PhoneticAnalyzers.Application.Services.Phonetic.INicknameService, PhoneticAnalyzers.Application.Services.Phonetic.InMemoryNicknameService>();
+
+                // MediatR for CQRS
+                services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService).Assembly));
+
+                // Health checks
+                services.AddHealthChecks()
+                    .AddDbContextCheck<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>("database")
+                    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Search function app is healthy"));
+            })
+            .Build();
+
+        await host.RunAsync();
+    }
+}

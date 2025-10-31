@@ -206,4 +206,5 @@ az functionapp create \
 
 **Total monthly cost:** ~$20-30 for development
 
-Everything else in your `local.settings.json` can stay as placeholder values until you actually need those services!
+Everything else in your `local.settings.json` can stay as placeholder values until you actually need those servicesDC4]'
+40/96/*4103+

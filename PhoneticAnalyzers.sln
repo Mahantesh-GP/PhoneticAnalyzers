@@ -24,6 +24,15 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PhoneticAnalyzers.Functions.Ingestion", "src\PhoneticAnalyzers.Functions.Ingestion\PhoneticAnalyzers.Functions.Ingestion.csproj", "{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}"
 EndProject
 
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PhoneticAnalyzers.Functions.Search", "src\PhoneticAnalyzers.Functions.Search\PhoneticAnalyzers.Functions.Search.csproj", "{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}"
+EndProject
+
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PhoneticAnalyzers.Web", "Web\PhoneticAnalyzers.Web.csproj", "{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}"
+EndProject
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Web", "Web", "{BG5DBH5D-4F9D-7E5H-BH6G-CF7E8D9HBH5D}"
+EndProject
+
 
 
 Global
@@ -48,6 +57,14 @@ Global
 		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Release|Any CPU.Build.0 = Release|Any CPU
 
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
@@ -58,6 +75,8 @@ Global
 		{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E} = {8E2A8F9A-1C6A-4B2E-8F3D-9C4B5A6E7F8A}
 		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F} = {8E2A8F9A-1C6A-4B2E-8F3D-9C4B5A6E7F8A}
 		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A} = {8E2A8F9A-1C6A-4B2E-8F3D-9C4B5A6E7F8A}
+		{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B} = {8E2A8F9A-1C6A-4B2E-8F3D-9C4B5A6E7F8A}
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C} = {BG5DBH5D-4F9D-7E5H-BH6G-CF7E8D9HBH5D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8F9A0B1C-2D3E-4F5A-6B7C-8D9E0F1A2B3C}
