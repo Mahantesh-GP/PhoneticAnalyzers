@@ -1,6 +1,8 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using PhoneticAnalyzers.Application.Commands.Ingestion;
 using PhoneticAnalyzers.Application.Queries.Search;
 using PhoneticAnalyzers.Domain.Entities;
@@ -68,6 +70,78 @@ public class PhoneticAnalyzersFunctions
         });
 
         return response;
+    }
+
+    /// <summary>
+    /// Check database connection and table status
+    /// </summary>
+    [Function("DbCheck")]
+    public async Task<HttpResponseData> DbCheck(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "db-check")] HttpRequestData req)
+    {
+        _logger.LogInformation("Database check requested");
+
+        try
+        {
+            // This will be injected via DI, so it will use your connection string
+            using var scope = req.FunctionContext.InstanceServices.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>();
+            
+            // Test basic connection
+            var canConnect = await context.Database.CanConnectAsync();
+            
+            var tableChecks = new List<object>();
+            
+            if (canConnect)
+            {
+                // Check if tables exist
+                try
+                {
+                    var personCount = await context.Persons.CountAsync();
+                    tableChecks.Add(new { table = "Persons", exists = true, count = personCount });
+                }
+                catch
+                {
+                    tableChecks.Add(new { table = "Persons", exists = false, count = 0 });
+                }
+
+                try
+                {
+                    var variantCount = await context.BeiderMorseVariants.CountAsync();
+                    tableChecks.Add(new { table = "BeiderMorseVariants", exists = true, count = variantCount });
+                }
+                catch
+                {
+                    tableChecks.Add(new { table = "BeiderMorseVariants", exists = false, count = 0 });
+                }
+            }
+
+            var response = req.CreateResponse(HttpStatusCode.OK);
+            await response.WriteAsJsonAsync(new
+            {
+                canConnect = canConnect,
+                databaseExists = canConnect,
+                tables = tableChecks,
+                timestamp = DateTime.UtcNow,
+                connectionString = "Host=" + (Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")?.Split(';')[0]?.Split('=')[1] ?? "Unknown")
+            });
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database check failed");
+            
+            var errorResponse = req.CreateResponse(HttpStatusCode.ServiceUnavailable);
+            await errorResponse.WriteAsJsonAsync(new
+            {
+                canConnect = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+
+            return errorResponse;
+        }
     }
 
     /// <summary>
