@@ -25,6 +25,61 @@ public sealed class PersonRepository : IPersonRepository
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        
+        // Log connection details when repository is created
+        LogConnectionDetails();
+    }
+
+    /// <summary>
+    /// Logs database connection details for debugging
+    /// </summary>
+    private void LogConnectionDetails()
+    {
+        try
+        {
+            var connectionString = _context.Database.GetConnectionString();
+            var maskedConnectionString = MaskConnectionStringPassword(connectionString ?? "");
+            _logger.LogInformation("PersonRepository initialized with connection: {ConnectionString}", maskedConnectionString);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not retrieve connection string details");
+        }
+    }
+
+    /// <summary>
+    /// Masks the password in a connection string for secure logging
+    /// </summary>
+    /// <param name="connectionString">The original connection string</param>
+    /// <returns>Connection string with password masked</returns>
+    private static string MaskConnectionStringPassword(string connectionString)
+    {
+        if (string.IsNullOrEmpty(connectionString))
+            return connectionString;
+
+        // Replace password value with asterisks
+        var patterns = new[]
+        {
+            @"Password\s*=\s*[^;]+",
+            @"Pwd\s*=\s*[^;]+",
+            @"password\s*=\s*[^;]+"
+        };
+
+        var result = connectionString;
+        foreach (var pattern in patterns)
+        {
+            result = System.Text.RegularExpressions.Regex.Replace(
+                result, 
+                pattern, 
+                match => 
+                {
+                    var keyPart = match.Value.Split('=')[0];
+                    return $"{keyPart}=***MASKED***";
+                }, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        return result;
     }
 
     /// <inheritdoc/>
@@ -35,8 +90,21 @@ public sealed class PersonRepository : IPersonRepository
 
         _logger.LogDebug("Adding person with external ID '{ExternalId}'", person.ExternalId.Value);
 
-        _context.Persons.Add(person);
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            // Log database connection attempt
+            _logger.LogDebug("Attempting database operation with connection: {ConnectionString}", 
+                MaskConnectionStringPassword(_context.Database.GetConnectionString() ?? ""));
+            
+            _context.Persons.Add(person);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database operation failed. Connection: {ConnectionString}", 
+                MaskConnectionStringPassword(_context.Database.GetConnectionString() ?? ""));
+            throw;
+        }
 
         _logger.LogInformation("Successfully added person with ID {PersonId}", person.Id);
         return person;

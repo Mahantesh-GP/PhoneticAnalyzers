@@ -42,6 +42,10 @@ public class Program
                 var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
                                     ?? throw new InvalidOperationException("Database connection string is required");
 
+                // Log connection string for debugging (with password masked)
+                var maskedConnectionString = MaskConnectionStringPassword(connectionString);
+                Console.WriteLine($"[DEBUG] Search Functions using database connection string: {maskedConnectionString}");
+
                 services.AddDbContext<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>(options =>
                 {
                     options.UseNpgsql(connectionString, npgsqlOptions =>
@@ -81,5 +85,35 @@ public class Program
             .Build();
 
         await host.RunAsync();
+    }
+
+    static string MaskConnectionStringPassword(string connectionString)
+    {
+        if (string.IsNullOrEmpty(connectionString))
+            return connectionString;
+
+        // Replace password value with asterisks
+        var patterns = new[]
+        {
+            @"Password\s*=\s*[^;]+",
+            @"Pwd\s*=\s*[^;]+",
+            @"password\s*=\s*[^;]+"
+        };
+
+        var result = connectionString;
+        foreach (var pattern in patterns)
+        {
+            result = System.Text.RegularExpressions.Regex.Replace(
+                result, 
+                pattern, 
+                match => 
+                {
+                    var keyPart = match.Value.Split('=')[0];
+                    return $"{keyPart}=***MASKED***";
+                }, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        return result;
     }
 }
