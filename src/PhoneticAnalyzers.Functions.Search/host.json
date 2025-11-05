@@ -11,26 +11,8 @@
       "default": "Information",
       "Microsoft": "Warning",
       "Microsoft.EntityFrameworkCore": "Warning",
-      "System": "Warning",
-      "PhoneticAnalyzers": "Information"
+      "System": "Warning"
     }
   },
-  "functionTimeout": "00:05:00",
-  "healthMonitor": {
-    "enabled": true,
-    "healthCheckInterval": "00:00:10",
-    "healthCheckWindow": "00:02:00",
-    "healthCheckThreshold": 6,
-    "counterThreshold": 0.80
-  },
-  "concurrency": {
-    "dynamicConcurrencyEnabled": true,
-    "snapshotPersistenceEnabled": true
-  },
-  "retry": {
-    "strategy": "exponentialBackoff",
-    "maxRetryCount": 3,
-    "minimumInterval": "00:00:02",
-    "maximumInterval": "00:00:30"
-  }
+  "functionTimeout": "00:05:00"
 }

@@ -5,57 +5,14 @@
       "samplingSettings": {
         "isEnabled": true,
         "excludedTypes": "Request"
-      },
-      "enableLiveMetricsFilters": true
+      }
     },
     "logLevel": {
       "default": "Information",
       "Microsoft": "Warning",
       "Microsoft.EntityFrameworkCore": "Warning",
-      "System": "Warning",
-      "PhoneticAnalyzers": "Information"
+      "System": "Warning"
     }
   },
-  "functionTimeout": "00:05:00",
-  "healthMonitor": {
-    "enabled": true,
-    "healthCheckInterval": "00:00:10",
-    "healthCheckWindow": "00:02:00",
-    "healthCheckThreshold": 6,
-    "counterThreshold": 0.80
-  },
-  "concurrency": {
-    "dynamicConcurrencyEnabled": true,
-    "snapshotPersistenceEnabled": true
-  },
-  "retry": {
-    "strategy": "exponentialBackoff",
-    "maxRetryCount": 3,
-    "minimumInterval": "00:00:02",
-    "maximumInterval": "00:00:30"
-  },
-  "extensions": {
-    "serviceBus": {
-      "batchOptions": {
-        "maxMessageCount": 16,
-        "operationTimeout": "00:01:00",
-        "autoComplete": true
-      },
-      "sessionHandlerOptions": {
-        "autoComplete": false,
-        "messageWaitTimeout": "00:00:05",
-        "maxAutoRenewDuration": "00:05:00",
-        "maxConcurrentSessions": 8
-      }
-    },
-    "eventHubs": {
-      "batchCheckpointFrequency": 1,
-      "eventProcessorOptions": {
-        "maxBatchSize": 64,
-        "prefetchCount": 256,
-        "loadBalancingUpdateInterval": "00:00:10",
-        "partitionOwnershipExpirationInterval": "00:00:30"
-      }
-    }
-  }
+  "functionTimeout": "00:05:00"
 }
