@@ -95,6 +95,63 @@ Search Input → Generate Codes → Match & Return Results
 - **Database**: PostgreSQL for data storage
 - **Algorithms**: Multiple phonetic encoding methods
 
+## Where Algorithms Run
+
+### **🔧 Algorithm Execution: C# Application Code (NOT Database)**
+
+The phonetic algorithms run **entirely in C# code** using **Lucene.NET library**, not in the database:
+
+```csharp
+// Algorithms run in C# APPLICATION CODE
+public class DoubleMetaphoneEncoder
+{
+    public string Encode(string name)
+    {
+        // Double Metaphone computation happens HERE in C#
+        return _doubleMetaphone.GetDoubleMetaphone(name);
+    }
+}
+```
+
+### **Processing Location Breakdown:**
+
+| Algorithm | **Runs Where** | **When** | **Purpose** |
+|-----------|---------------|----------|-------------|
+| **Double Metaphone** | C# Code | During ingestion & search | Generate phonetic codes |
+| **Beider-Morse** | C# Code | During ingestion & search | Generate phonetic variants |  
+| **Trigram Similarity** | PostgreSQL DB | During search only | Fuzzy string matching |
+| **Exact Match** | PostgreSQL DB | During search only | Direct name comparison |
+
+### **Data Flow Process:**
+
+#### **During Ingestion (C# Processing):**
+```
+1. Input: "Catherine Johnson"
+2. C# Algorithms Run:
+   - DoubleMetaphone("CATHERINE") → "K0RN"
+   - BeiderMorse("CATHERINE") → "KATRN|K0RN|KTRN"
+3. Store in Database:
+   - OriginalName: "Catherine Johnson"
+   - PrimaryDoubleMetaphone: "K0RN" 
+   - BeiderMorseCodes: ["KATRN", "K0RN", "KTRN"]
+```
+
+#### **During Search (Database Lookup):**
+```sql
+-- Database does SIMPLE string matching on pre-computed codes
+SELECT * FROM Persons 
+WHERE PrimaryDoubleMetaphone = 'K0RN';  -- Fast index lookup
+
+SELECT * FROM BeiderMorseVariants 
+WHERE BeiderMorseCode IN ('KATRN','K0RN');  -- Simple IN clause
+```
+
+### **Why This Design?**
+- **Performance**: Pre-compute expensive algorithms once during ingestion
+- **Consistency**: Same algorithm implementation everywhere  
+- **Scalability**: Database does fast lookups, not slow computations
+- **Flexibility**: Easy to add new algorithms without changing database
+
 ## Performance
 - **Speed**: Searches complete in milliseconds
 - **Accuracy**: 90%+ match rate for name variations
