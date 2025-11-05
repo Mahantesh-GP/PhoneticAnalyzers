@@ -43,7 +43,28 @@ public class PhoneticAnalyzersFunctions
         {
             status = "Healthy",
             timestamp = DateTime.UtcNow,
-            version = "1.0.0"
+            version = "1.0.0",
+            message = "Ingestion Function App is running"
+        });
+
+        return response;
+    }
+
+    /// <summary>
+    /// Simple test endpoint that doesn't require database
+    /// </summary>
+    [Function("Test")]
+    public async Task<HttpResponseData> Test(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "test")] HttpRequestData req)
+    {
+        _logger.LogInformation("Test endpoint called");
+
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new
+        {
+            message = "Test endpoint working!",
+            timestamp = DateTime.UtcNow,
+            environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown"
         });
 
         return response;

@@ -115,20 +115,32 @@ var host = new HostBuilder()
     })
     .Build();
 
-// Ensure database is created and migrated
-using (var scope = host.Services.CreateScope())
+// Ensure database is created and migrated (optional for startup)
+var skipDbInit = Environment.GetEnvironmentVariable("SKIP_DATABASE_INIT");
+if (string.IsNullOrEmpty(skipDbInit) || !bool.TryParse(skipDbInit, out var shouldSkip) || !shouldSkip)
 {
-    try
+    using (var scope = host.Services.CreateScope())
     {
-        var context = scope.ServiceProvider.GetRequiredService<PhoneticAnalyzersDbContext>();
-        await context.Database.MigrateAsync();
+        try
+        {
+            var context = scope.ServiceProvider.GetRequiredService<PhoneticAnalyzersDbContext>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            
+            logger.LogInformation("Attempting to migrate database...");
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Database migration completed successfully");
+        }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            logger.LogWarning(ex, "Database migration failed. Function will start but database operations may fail until connection is established.");
+            // Don't throw - allow function to start even if database is not available
+        }
     }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database");
-        throw;
-    }
+}
+else
+{
+    Console.WriteLine("Skipping database initialization due to SKIP_DATABASE_INIT environment variable");
 }
 
 await host.RunAsync();
