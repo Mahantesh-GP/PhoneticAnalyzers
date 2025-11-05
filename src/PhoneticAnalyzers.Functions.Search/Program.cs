@@ -44,7 +44,7 @@ public class Program
 
                 // Log connection string for debugging (with password masked)
                 var maskedConnectionString = MaskConnectionStringPassword(connectionString);
-                Console.WriteLine($"[DEBUG] Search Functions using database connection string: {maskedConnectionString}");
+                WriteConnectionStringHighlight($"[CONNECTION] {maskedConnectionString}");
 
                 services.AddDbContext<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>(options =>
                 {
@@ -115,5 +115,13 @@ public class Program
         }
 
         return result;
+    }
+
+    static void WriteConnectionStringHighlight(string message)
+    {
+        var originalColor = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine(message);
+        Console.ForegroundColor = originalColor;
     }
 }

@@ -42,9 +42,9 @@ var host = new HostBuilder()
         var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
                             ?? throw new InvalidOperationException("Database connection string is required");
 
-        // Log connection string for debugging (with password masked)
-        var maskedConnectionString = MaskConnectionStringPassword(connectionString);
-        Console.WriteLine($"[DEBUG] Using database connection string: {maskedConnectionString}");
+    // Log connection string for debugging (with password masked)
+    var maskedConnectionString = MaskConnectionStringPassword(connectionString);
+    WriteConnectionStringHighlight($"[CONNECTION] {maskedConnectionString}");
 
         services.AddDbContext<PhoneticAnalyzersDbContext>(options =>
         {
@@ -182,5 +182,13 @@ static string MaskConnectionStringPassword(string connectionString)
     }
 
     return result;
+}
+
+static void WriteConnectionStringHighlight(string message)
+{
+    var originalColor = Console.ForegroundColor;
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine(message);
+    Console.ForegroundColor = originalColor;
 }
 
