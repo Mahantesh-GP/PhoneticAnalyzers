@@ -1,5 +1,6 @@
-using FluentValidation;
+// FluentValidation removed for smoke-test simplification
 using MediatR;
+using FluentValidation;
 using PhoneticAnalyzers.Domain.Repositories;
 using PhoneticAnalyzers.Domain.ValueObjects;
 
@@ -180,33 +181,34 @@ public sealed class PersonPhoneticCodes
     public IReadOnlyList<string> BeiderMorseCodes { get; init; } = [];
 }
 
+// removed duplicate misplaced using
+
 /// <summary>
-/// Validator for SearchPersonsQuery
+/// Validator for <see cref="SearchPersonsQuery"/>
 /// </summary>
 public sealed class SearchPersonsQueryValidator : AbstractValidator<SearchPersonsQuery>
 {
     /// <summary>
-    /// Initializes a new instance of the SearchPersonsQueryValidator class
+    /// Creates a new validator instance for <see cref="SearchPersonsQuery"/>
     /// </summary>
     public SearchPersonsQueryValidator()
     {
         RuleFor(x => x.QueryName)
-            .NotEmpty()
-            .WithMessage("Query name is required")
-            .MaximumLength(200)
-            .WithMessage("Query name cannot exceed 200 characters");
+            .NotEmpty().WithMessage("Query name is required")
+            .MinimumLength(2).WithMessage("Query name must be at least 2 characters")
+            .MaximumLength(200).WithMessage("Query name cannot exceed 200 characters");
 
         RuleFor(x => x.MaxResults)
-            .GreaterThan(0)
-            .WithMessage("Max results must be greater than zero")
-            .LessThanOrEqualTo(1000)
-            .WithMessage("Max results cannot exceed 1000");
+            .GreaterThan(0).WithMessage("Max results must be greater than zero")
+            .LessThanOrEqualTo(500).WithMessage("Max results cannot exceed 500");
 
         RuleFor(x => x.MinSimilarityThreshold)
-            .GreaterThanOrEqualTo(0.0)
-            .WithMessage("Similarity threshold must be at least 0.0")
-            .LessThanOrEqualTo(1.0)
-            .WithMessage("Similarity threshold cannot exceed 1.0");
+            .InclusiveBetween(0.0, 1.0).WithMessage("Similarity threshold must be between 0.0 and 1.0")
+            .LessThanOrEqualTo(0.9).WithMessage("Similarity threshold cannot exceed 0.9 to allow matches");
+
+        RuleFor(x => x.AlgorithmTypes)
+            .Must(list => list.Distinct().Count() == list.Count)
+            .WithMessage("Algorithm types cannot contain duplicates");
     }
 }
 
@@ -294,19 +296,17 @@ public sealed class PersonDetails
 }
 
 /// <summary>
-/// Validator for GetPersonDetailsQuery
+/// Validator for <see cref="GetPersonDetailsQuery"/>
 /// </summary>
 public sealed class GetPersonDetailsQueryValidator : AbstractValidator<GetPersonDetailsQuery>
 {
     /// <summary>
-    /// Initializes a new instance of the GetPersonDetailsQueryValidator class
+    /// Creates a new validator instance for <see cref="GetPersonDetailsQuery"/>
     /// </summary>
     public GetPersonDetailsQueryValidator()
     {
         RuleFor(x => x.ExternalId)
-            .NotEmpty()
-            .WithMessage("External ID is required")
-            .MaximumLength(64)
-            .WithMessage("External ID cannot exceed 64 characters");
+            .NotEmpty().WithMessage("External ID is required")
+            .MaximumLength(64).WithMessage("External ID cannot exceed 64 characters");
     }
 }

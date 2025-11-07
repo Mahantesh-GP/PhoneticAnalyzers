@@ -32,7 +32,8 @@ public class SearchFunctions
     /// </summary>
     [Function("SearchHealthCheck")]
     public async Task<HttpResponseData> HealthCheck(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "search/health")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "search/health")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Search service health check requested");
 
@@ -43,7 +44,7 @@ public class SearchFunctions
             status = "Healthy",
             timestamp = DateTime.UtcNow,
             version = "1.0.0"
-        });
+        }, ct);
 
         return response;
     }
@@ -53,13 +54,14 @@ public class SearchFunctions
     /// </summary>
     [Function("AdvancedSearch")]
     public async Task<HttpResponseData> AdvancedSearch(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "search/advanced")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "search/advanced")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Advanced search requested");
 
         try
         {
-            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync(ct);
             var searchRequest = JsonSerializer.Deserialize<AdvancedSearchRequest>(requestBody, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -68,7 +70,7 @@ public class SearchFunctions
             if (searchRequest == null)
             {
                 var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                await badResponse.WriteAsJsonAsync(new { error = "Invalid request body" });
+                await badResponse.WriteAsJsonAsync(new { error = "Invalid request body" }, ct);
                 return badResponse;
             }
 
@@ -82,7 +84,7 @@ public class SearchFunctions
                 IncludeMatchDetails = searchRequest.IncludeMatchDetails ?? true
             };
 
-            var searchResults = await _mediator.Send(query);
+            var searchResults = await _mediator.Send(query, ct);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new
@@ -127,7 +129,7 @@ public class SearchFunctions
                     } : null
                 }),
                 warnings = searchResults.Warnings
-            });
+            }, ct);
 
             return response;
         }
@@ -140,7 +142,7 @@ public class SearchFunctions
             {
                 error = "Internal server error",
                 message = ex.Message
-            });
+            }, ct);
 
             return errorResponse;
         }
@@ -151,13 +153,14 @@ public class SearchFunctions
     /// </summary>
     [Function("BulkSearch")]
     public async Task<HttpResponseData> BulkSearch(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "search/bulk")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "search/bulk")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Bulk search requested");
 
         try
         {
-            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync(ct);
             var bulkRequest = JsonSerializer.Deserialize<BulkSearchRequest>(requestBody, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -166,7 +169,7 @@ public class SearchFunctions
             if (bulkRequest?.SearchTerms == null || !bulkRequest.SearchTerms.Any())
             {
                 var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                await badResponse.WriteAsJsonAsync(new { error = "No search terms provided" });
+                await badResponse.WriteAsJsonAsync(new { error = "No search terms provided" }, ct);
                 return badResponse;
             }
 
@@ -175,6 +178,11 @@ public class SearchFunctions
 
             foreach (var searchTerm in bulkRequest.SearchTerms.Take(20)) // Limit to 20 searches per request
             {
+                if (ct.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Bulk search cancelled by client.");
+                    break;
+                }
                 try
                 {
                     var query = new SearchPersonsQuery
@@ -185,7 +193,7 @@ public class SearchFunctions
                         IncludeMatchDetails = false // Simplified for bulk operations
                     };
 
-                    var searchResults = await _mediator.Send(query);
+                    var searchResults = await _mediator.Send(query, ct);
                     totalExecutionTime = totalExecutionTime.Add(searchResults.ExecutionTime);
 
                     bulkResults.Add(new
@@ -221,7 +229,7 @@ public class SearchFunctions
                 totalExecutionTime = totalExecutionTime.TotalMilliseconds,
                 averageExecutionTime = totalExecutionTime.TotalMilliseconds / Math.Max(bulkResults.Count, 1),
                 results = bulkResults
-            });
+            }, ct);
 
             return response;
         }
@@ -234,7 +242,7 @@ public class SearchFunctions
             {
                 error = "Internal server error",
                 message = ex.Message
-            });
+            }, ct);
 
             return errorResponse;
         }

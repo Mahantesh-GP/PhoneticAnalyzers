@@ -36,7 +36,8 @@ public class PhoneticAnalyzersFunctions
     /// </summary>
     [Function("HealthCheck")]
     public async Task<HttpResponseData> HealthCheck(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Health check requested");
 
@@ -47,7 +48,7 @@ public class PhoneticAnalyzersFunctions
             timestamp = DateTime.UtcNow,
             version = "1.0.0",
             message = "Ingestion Function App is running"
-        });
+        }, ct);
 
         return response;
     }
@@ -57,7 +58,8 @@ public class PhoneticAnalyzersFunctions
     /// </summary>
     [Function("Test")]
     public async Task<HttpResponseData> Test(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "test")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "test")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Test endpoint called");
 
@@ -67,7 +69,7 @@ public class PhoneticAnalyzersFunctions
             message = "Test endpoint working!",
             timestamp = DateTime.UtcNow,
             environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown"
-        });
+        }, ct);
 
         return response;
     }
@@ -77,7 +79,8 @@ public class PhoneticAnalyzersFunctions
     /// </summary>
     [Function("DbCheck")]
     public async Task<HttpResponseData> DbCheck(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "db-check")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "db-check")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Database check requested");
 
@@ -88,7 +91,7 @@ public class PhoneticAnalyzersFunctions
             var context = scope.ServiceProvider.GetRequiredService<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>();
             
             // Test basic connection
-            var canConnect = await context.Database.CanConnectAsync();
+            var canConnect = await context.Database.CanConnectAsync(ct);
             
             var tableChecks = new List<object>();
             
@@ -97,7 +100,7 @@ public class PhoneticAnalyzersFunctions
                 // Check if tables exist
                 try
                 {
-                    var personCount = await context.Persons.CountAsync();
+                    var personCount = await context.Persons.CountAsync(ct);
                     tableChecks.Add(new { table = "Persons", exists = true, count = personCount });
                 }
                 catch
@@ -107,7 +110,7 @@ public class PhoneticAnalyzersFunctions
 
                 try
                 {
-                    var variantCount = await context.BeiderMorseVariants.CountAsync();
+                    var variantCount = await context.BeiderMorseVariants.CountAsync(ct);
                     tableChecks.Add(new { table = "BeiderMorseVariants", exists = true, count = variantCount });
                 }
                 catch
@@ -124,7 +127,7 @@ public class PhoneticAnalyzersFunctions
                 tables = tableChecks,
                 timestamp = DateTime.UtcNow,
                 connectionString = "Host=" + (Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")?.Split(';')[0]?.Split('=')[1] ?? "Unknown")
-            });
+            }, ct);
 
             return response;
         }
@@ -138,7 +141,7 @@ public class PhoneticAnalyzersFunctions
                 canConnect = false,
                 error = ex.Message,
                 timestamp = DateTime.UtcNow
-            });
+            }, ct);
 
             return errorResponse;
         }
@@ -149,13 +152,14 @@ public class PhoneticAnalyzersFunctions
     /// </summary>
     [Function("IngestPerson")]
     public async Task<HttpResponseData> IngestPerson(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "ingest")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "ingest")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Person ingestion requested");
 
         try
         {
-            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync(ct);
             var command = JsonSerializer.Deserialize<IngestPersonCommand>(requestBody, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -164,11 +168,11 @@ public class PhoneticAnalyzersFunctions
             if (command == null)
             {
                 var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                await badResponse.WriteAsJsonAsync(new { error = "Invalid request body" });
+                await badResponse.WriteAsJsonAsync(new { error = "Invalid request body" }, ct);
                 return badResponse;
             }
 
-            var result = await _mediator.Send(command);
+            var result = await _mediator.Send(command, ct);
 
             var response = req.CreateResponse(HttpStatusCode.Created);
             await response.WriteAsJsonAsync(new
@@ -183,7 +187,7 @@ public class PhoneticAnalyzersFunctions
                     beiderMorseCodes = result.PhoneticEncoding.BeiderMorseCodes
                 },
                 warnings = result.Warnings
-            });
+            }, ct);
 
             return response;
         }
@@ -196,7 +200,7 @@ public class PhoneticAnalyzersFunctions
             {
                 error = "Internal server error",
                 message = ex.Message
-            });
+            }, ct);
 
             return errorResponse;
         }
@@ -207,13 +211,14 @@ public class PhoneticAnalyzersFunctions
     /// </summary>
     [Function("BatchIngestPersons")]
     public async Task<HttpResponseData> BatchIngestPersons(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "ingest/batch")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "ingest/batch")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Batch person ingestion requested");
 
         try
         {
-            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync(ct);
             var batchRequest = JsonSerializer.Deserialize<BatchIngestRequest>(requestBody, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -222,7 +227,7 @@ public class PhoneticAnalyzersFunctions
             if (batchRequest?.Persons == null || !batchRequest.Persons.Any())
             {
                 var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                await badResponse.WriteAsJsonAsync(new { error = "No persons provided for batch ingestion" });
+                await badResponse.WriteAsJsonAsync(new { error = "No persons provided for batch ingestion" }, ct);
                 return badResponse;
             }
 
@@ -231,6 +236,11 @@ public class PhoneticAnalyzersFunctions
 
             foreach (var personData in batchRequest.Persons)
             {
+                if (ct.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Batch ingestion cancelled by client.");
+                    break;
+                }
                 try
                 {
                     var command = new IngestPersonCommand
@@ -240,7 +250,7 @@ public class PhoneticAnalyzersFunctions
                         ExpandNicknames = personData.ExpandNicknames ?? true
                     };
 
-                    var result = await _mediator.Send(command);
+                    var result = await _mediator.Send(command, ct);
                     results.Add(new
                     {
                         externalId = personData.ExternalId,
@@ -268,7 +278,7 @@ public class PhoneticAnalyzersFunctions
                 failed = errors.Count,
                 results = results,
                 errors = errors
-            });
+            }, ct);
 
             return response;
         }
@@ -281,7 +291,7 @@ public class PhoneticAnalyzersFunctions
             {
                 error = "Internal server error",
                 message = ex.Message
-            });
+            }, ct);
 
             return errorResponse;
         }
@@ -292,7 +302,8 @@ public class PhoneticAnalyzersFunctions
     /// </summary>
     [Function("SearchPersons")]
     public async Task<HttpResponseData> SearchPersons(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "search")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "search")] HttpRequestData req,
+        CancellationToken ct)
     {
         _logger.LogInformation("Person search requested");
 
@@ -307,7 +318,7 @@ public class PhoneticAnalyzersFunctions
             if (string.IsNullOrWhiteSpace(name))
             {
                 var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                await badResponse.WriteAsJsonAsync(new { error = "Name parameter is required" });
+                await badResponse.WriteAsJsonAsync(new { error = "Name parameter is required" }, ct);
                 return badResponse;
             }
 
@@ -323,7 +334,7 @@ public class PhoneticAnalyzersFunctions
                 MaxResults = maxResults
             };
 
-            var searchResults = await _mediator.Send(searchCommand);
+            var searchResults = await _mediator.Send(searchCommand, ct);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new
@@ -350,7 +361,7 @@ public class PhoneticAnalyzersFunctions
                         beiderMorse = p.PhoneticCodes.BeiderMorseCodes
                     } : null
                 })
-            });
+            }, ct);
 
             return response;
         }
@@ -363,7 +374,7 @@ public class PhoneticAnalyzersFunctions
             {
                 error = "Internal server error",
                 message = ex.Message
-            });
+            }, ct);
 
             return errorResponse;
         }
@@ -375,7 +386,8 @@ public class PhoneticAnalyzersFunctions
     [Function("GetPerson")]
     public async Task<HttpResponseData> GetPerson(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "person/{id}")] HttpRequestData req,
-        string id)
+        string id,
+        CancellationToken ct)
     {
         _logger.LogInformation("Get person requested for ID: {Id}", id);
 
@@ -384,7 +396,7 @@ public class PhoneticAnalyzersFunctions
             if (!Guid.TryParse(id, out var personId))
             {
                 var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                await badResponse.WriteAsJsonAsync(new { error = "Invalid person ID format" });
+                await badResponse.WriteAsJsonAsync(new { error = "Invalid person ID format" }, ct);
                 return badResponse;
             }
 
@@ -395,7 +407,7 @@ public class PhoneticAnalyzersFunctions
             {
                 error = "Get person by ID not yet implemented",
                 personId = personId
-            });
+            }, ct);
 
             return response;
         }
@@ -408,7 +420,7 @@ public class PhoneticAnalyzersFunctions
             {
                 error = "Internal server error",
                 message = ex.Message
-            });
+            }, ct);
 
             return errorResponse;
         }

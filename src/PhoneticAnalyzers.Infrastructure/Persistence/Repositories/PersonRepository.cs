@@ -37,6 +37,12 @@ public sealed class PersonRepository : IPersonRepository
     {
         try
         {
+            if (!_context.Database.IsRelational())
+            {
+                _logger.LogDebug("PersonRepository initialized with non-relational provider (e.g., InMemory) - skipping connection details.");
+                return;
+            }
+
             var connectionString = _context.Database.GetConnectionString();
             var maskedConnectionString = MaskConnectionStringPassword(connectionString ?? "");
             _logger.LogInformation("PersonRepository initialized with connection: {ConnectionString}", maskedConnectionString);
@@ -93,16 +99,35 @@ public sealed class PersonRepository : IPersonRepository
         try
         {
             // Log database connection attempt
-            _logger.LogDebug("Attempting database operation with connection: {ConnectionString}", 
-                MaskConnectionStringPassword(_context.Database.GetConnectionString() ?? ""));
+            if (_context.Database.IsRelational())
+            {
+                _logger.LogDebug("Attempting database operation with connection: {ConnectionString}",
+                    MaskConnectionStringPassword(_context.Database.GetConnectionString() ?? ""));
+            }
             
+            _logger.LogInformation("Person ID before Add: {PersonId}", person.Id);
             _context.Persons.Add(person);
-            await _context.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Entity state after Add: {State}", _context.Entry(person).State);
+            
+            _logger.LogInformation("Calling SaveChangesAsync to persist person {PersonId} with ExternalId '{ExternalId}'", 
+                person.Id, person.ExternalId.Value);
+            
+            var changeCount = await _context.SaveChangesAsync(cancellationToken);
+            
+            _logger.LogInformation("SaveChangesAsync completed. Changes saved: {ChangeCount}, Person ID after save: {PersonId}", 
+                changeCount, person.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database operation failed. Connection: {ConnectionString}", 
-                MaskConnectionStringPassword(_context.Database.GetConnectionString() ?? ""));
+            if (_context.Database.IsRelational())
+            {
+                _logger.LogError(ex, "Database operation failed. Connection: {ConnectionString}",
+                    MaskConnectionStringPassword(_context.Database.GetConnectionString() ?? ""));
+            }
+            else
+            {
+                _logger.LogError(ex, "Database operation failed using non-relational provider.");
+            }
             throw;
         }
 
@@ -119,7 +144,10 @@ public sealed class PersonRepository : IPersonRepository
         _logger.LogDebug("Updating person with ID {PersonId}", person.Id);
 
         _context.Persons.Update(person);
-        await _context.SaveChangesAsync(cancellationToken);
+        
+        _logger.LogInformation("Calling SaveChangesAsync to update person {PersonId}", person.Id);
+        var changeCount = await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("SaveChangesAsync completed. Changes saved: {ChangeCount}", changeCount);
 
         _logger.LogInformation("Successfully updated person with ID {PersonId}", person.Id);
         return person;
@@ -174,7 +202,6 @@ public sealed class PersonRepository : IPersonRepository
         _logger.LogDebug("Starting phonetic search for '{QueryName}'", searchCriteria.QueryName.Value);
 
         var results = new List<PhoneticSearchResult>();
-        var firstLetter = searchCriteria.QueryName.FirstLetter;
 
         // 1. Exact matches first
         await AddExactMatches(results, searchCriteria, cancellationToken);
@@ -182,13 +209,13 @@ public sealed class PersonRepository : IPersonRepository
         // 2. Double Metaphone matches
         if (searchCriteria.PrimaryDoubleMetaphone != null)
         {
-            await AddDoubleMetaphoneMatches(results, searchCriteria, firstLetter, cancellationToken);
+            await AddDoubleMetaphoneMatches(results, searchCriteria, cancellationToken);
         }
 
         // 3. Beider-Morse matches
         if (searchCriteria.BeiderMorseCodes.Any())
         {
-            await AddBeiderMorseMatches(results, searchCriteria, firstLetter, cancellationToken);
+            await AddBeiderMorseMatches(results, searchCriteria, cancellationToken);
         }
 
         // 4. Trigram similarity matches (if enabled and we need more results)
@@ -316,7 +343,6 @@ public sealed class PersonRepository : IPersonRepository
     private async Task AddDoubleMetaphoneMatches(
         List<PhoneticSearchResult> results,
         PhoneticSearchCriteria searchCriteria,
-        char firstLetter,
         CancellationToken cancellationToken)
     {
         // Primary Double Metaphone matches
@@ -324,8 +350,7 @@ public sealed class PersonRepository : IPersonRepository
         {
             var primaryMatches = await _context.Persons
                 .Include(p => p.BeiderMorseVariants)
-                .Where(p => p.PrimaryDoubleMetaphone == searchCriteria.PrimaryDoubleMetaphone && 
-                           p.FirstLetter == firstLetter)
+                .Where(p => p.PrimaryDoubleMetaphone == searchCriteria.PrimaryDoubleMetaphone)
                 .Take(searchCriteria.MaxResults)
                 .ToListAsync(cancellationToken);
 
@@ -343,8 +368,7 @@ public sealed class PersonRepository : IPersonRepository
         {
             var alternateMatches = await _context.Persons
                 .Include(p => p.BeiderMorseVariants)
-                .Where(p => p.AlternateDoubleMetaphone == searchCriteria.AlternateDoubleMetaphone && 
-                           p.FirstLetter == firstLetter)
+                .Where(p => p.AlternateDoubleMetaphone == searchCriteria.AlternateDoubleMetaphone)
                 .Take(searchCriteria.MaxResults)
                 .ToListAsync(cancellationToken);
 
@@ -364,23 +388,32 @@ public sealed class PersonRepository : IPersonRepository
     private async Task AddBeiderMorseMatches(
         List<PhoneticSearchResult> results,
         PhoneticSearchCriteria searchCriteria,
-        char firstLetter,
         CancellationToken cancellationToken)
     {
         var bmCodes = searchCriteria.BeiderMorseCodes.Select(c => c.Value).ToList();
+        if (bmCodes.Count == 0)
+        {
+            return;
+        }
+
+        // Query variant table first to avoid complex navigation translation issues
+        var matchingPersonIdsQuery = _context.BeiderMorseVariants
+            .Where(bm => bmCodes.Contains(bm.BeiderMorseCode))
+            .Select(bm => bm.PersonId)
+            .Distinct();
 
         var bmMatches = await _context.Persons
             .Include(p => p.BeiderMorseVariants)
-            .Where(p => p.BeiderMorseVariants.Any(bm => 
-                bmCodes.Contains(bm.BeiderMorseCode.Value) && bm.FirstLetter == firstLetter))
+            .Where(p => matchingPersonIdsQuery.Contains(p.Id))
             .Take(searchCriteria.MaxResults)
             .ToListAsync(cancellationToken);
 
         foreach (var match in bmMatches)
         {
             var matchingCode = match.BeiderMorseVariants
-                .FirstOrDefault(bm => bmCodes.Contains(bm.BeiderMorseCode.Value))?.BeiderMorseCode.Value;
-                
+                .Select(v => v.BeiderMorseCode.Value)
+                .FirstOrDefault(code => bmCodes.Contains(code));
+
             results.Add(new PhoneticSearchResult(match, 0.8, PhoneticMatchType.BeiderMorse,
                 $"Beider-Morse: {matchingCode}"));
         }
@@ -402,8 +435,9 @@ public sealed class PersonRepository : IPersonRepository
         // This is simplified for demonstration
         var similarMatches = await _context.Persons
             .Include(p => p.BeiderMorseVariants)
-            .Where(p => EF.Functions.Like(p.NormalizedName.Value, $"%{searchCriteria.QueryName.Value}%"))
-            .OrderByDescending(p => EF.Functions.TrigramsWordSimilarity(p.NormalizedName.Value, searchCriteria.QueryName.Value))
+            // Use the mapped property directly so EF can apply the value converter
+            .Where(p => EF.Functions.Like(p.NormalizedName, $"%{searchCriteria.QueryName.Value}%"))
+            .OrderByDescending(p => EF.Functions.TrigramsWordSimilarity(p.NormalizedName, searchCriteria.QueryName.Value))
             .Take(searchCriteria.MaxResults)
             .ToListAsync(cancellationToken);
 

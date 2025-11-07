@@ -9,6 +9,9 @@ using PhoneticAnalyzers.Application.Services.Phonetic;
 using PhoneticAnalyzers.Domain.Repositories;
 using PhoneticAnalyzers.Infrastructure.Persistence;
 using PhoneticAnalyzers.Infrastructure.Persistence.Repositories;
+using FluentValidation;
+using PhoneticAnalyzers.Application.Behaviors;
+using MediatR;
 
 namespace PhoneticAnalyzers.Functions.Search;
 
@@ -23,13 +26,19 @@ public class Program
     public static async Task Main()
     {
         var host = new HostBuilder()
-            .ConfigureFunctionsWorkerDefaults()
+            .ConfigureFunctionsWorkerDefaults(builder =>
+            {
+                // Add validation exception middleware
+                builder.UseMiddleware<PhoneticAnalyzers.Functions.Search.Middleware.ValidationExceptionMiddleware>();
+            })
             .ConfigureAppConfiguration((context, config) =>
             {
                 var environment = context.HostingEnvironment.EnvironmentName;
-                
+
+                // Load standard appsettings plus local.settings.json for Functions local dev
                 config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                       .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
+                      .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
                       .AddEnvironmentVariables();
             })
             .ConfigureServices((context, services) =>
@@ -39,7 +48,7 @@ public class Program
                 services.ConfigureFunctionsApplicationInsights();
 
                 // Database context
-                var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
+                var connectionString = ResolveDefaultConnectionString(context.Configuration)
                                     ?? throw new InvalidOperationException("Database connection string is required");
 
                 // Log connection string for debugging (with password masked)
@@ -77,6 +86,10 @@ public class Program
                 // MediatR for CQRS
                 services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService).Assembly));
 
+                // FluentValidation: register validators & pipeline behavior
+                services.AddValidatorsFromAssembly(typeof(PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService).Assembly);
+                services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
                 // Health checks
                 services.AddHealthChecks()
                     .AddDbContextCheck<PhoneticAnalyzers.Infrastructure.Persistence.PhoneticAnalyzersDbContext>("database")
@@ -85,6 +98,16 @@ public class Program
             .Build();
 
         await host.RunAsync();
+    }
+
+    static string? ResolveDefaultConnectionString(IConfiguration configuration)
+    {
+        // Try common locations in order, supporting Functions local.settings.json (Values section)
+        return
+            configuration.GetConnectionString("DefaultConnection")
+            ?? configuration["ConnectionStrings:DefaultConnection"]
+            ?? configuration["Values:ConnectionStrings__DefaultConnection"]
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
     }
 
     static string MaskConnectionStringPassword(string connectionString)

@@ -11,9 +11,16 @@ using PhoneticAnalyzers.Infrastructure.Persistence;
 using PhoneticAnalyzers.Infrastructure.Persistence.Repositories;
 
 using System.Reflection;
+using FluentValidation;
+using PhoneticAnalyzers.Application.Behaviors;
+using MediatR;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWorkerDefaults()
+    .ConfigureFunctionsWorkerDefaults(builder =>
+    {
+        // Add validation exception middleware
+        builder.UseMiddleware<PhoneticAnalyzers.Functions.Ingestion.Middleware.ValidationExceptionMiddleware>();
+    })
     .ConfigureAppConfiguration((context, config) =>
     {
         var environment = context.HostingEnvironment.EnvironmentName;
@@ -84,6 +91,10 @@ var host = new HostBuilder()
 
         // MediatR for CQRS
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService).Assembly));
+
+    // FluentValidation: register validators & pipeline behavior
+    services.AddValidatorsFromAssembly(typeof(PhoneticAnalyzers.Application.Services.Phonetic.IPhoneticEncodingService).Assembly);
+    services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         // Logging configuration
         services.Configure<LoggerFilterOptions>(options =>

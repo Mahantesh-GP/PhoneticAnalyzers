@@ -1,4 +1,5 @@
 @page "/search"
+@rendermode InteractiveServer
 @using PhoneticAnalyzers.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
@@ -21,7 +22,7 @@
             <i class="bi bi-search me-2"></i>Search Parameters
         </div>
         <div class="card-body">
-            <EditForm Model="SearchModel" OnValidSubmit="HandleSearch">
+            <EditForm Model="SearchModel" OnValidSubmit="HandleSearch"  Enhance="false" FormName="SearchForm">
                 <DataAnnotationsValidator />
                 
                 <div class="row">
@@ -32,16 +33,16 @@
                                 <i class="bi bi-person"></i>
                             </span>
                             <InputText @bind-Value="SearchModel.Name" 
-                                     class="form-control" 
-                                     placeholder="Enter full name (e.g., John Smith)"
-                                     @onkeypress="HandleKeyPress" />
+                                       class="form-control" 
+                                       placeholder="Enter full name (e.g., John Smith)"
+                                       @onkeypress="HandleKeyPress" />
                         </div>
                         <ValidationMessage For="() => SearchModel.Name" class="text-danger small" />
                     </div>
                     
                     <div class="col-md-4 mb-3">
                         <label class="form-label fw-bold">Max Results</label>
-                        <InputSelect @bind-Value="SearchModel.MaxResults" class="form-select">
+                        <InputSelect TValue="int" @bind-Value="SearchModel.MaxResults" class="form-select">
                             <option value="5">5 results</option>
                             <option value="10">10 results</option>
                             <option value="25">25 results</option>
@@ -291,6 +292,12 @@
         }
     }
 
+    private void HandleInvalidSubmit()
+    {
+        ErrorMessage = "Please enter a valid name (2-200 characters)";
+        StateHasChanged();
+    }
+
     private async Task HandleKeyPress(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !IsSearching && !string.IsNullOrWhiteSpace(SearchModel.Name))
@@ -330,4 +337,4 @@
             _ => "bg-danger"
         };
     }
-}
+}}

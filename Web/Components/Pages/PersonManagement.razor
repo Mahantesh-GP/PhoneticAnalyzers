@@ -1,7 +1,9 @@
 @page "/person-management"
+@rendermode InteractiveServer
 @using PhoneticAnalyzers.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
+@using PhoneticAnalyzers.Web.Components.Shared
 @inject PhoneticAnalyzersApiService ApiService
 
 <PageTitle>Person Management - PhoneticAnalyzers</PageTitle>
@@ -21,7 +23,7 @@
             <i class="bi bi-person-plus me-2"></i>Add New Person
         </div>
         <div class="card-body">
-            <EditForm Model="PersonModel" OnValidSubmit="HandleAddPerson">
+            <EditForm Model="PersonModel" OnValidSubmit="HandleAddPerson" Enhance="false">
                 <DataAnnotationsValidator />
                 
                 <div class="row">
@@ -88,10 +90,23 @@
                     <button type="button" class="btn btn-outline-secondary" @onclick="ResetForm">
                         <i class="bi bi-arrow-counterclockwise me-2"></i>Reset Form
                     </button>
+                    
+                    <button type="button" class="btn btn-outline-info" @onclick="TestClick">
+                        <i class="bi bi-bug me-2"></i>Test Connection
+                    </button>
                 </div>
             </EditForm>
         </div>
     </div>
+
+    <!-- API Validation Errors -->
+    @if (ValidationErrors != null && ValidationErrors.Any())
+    {
+        <PhoneticAnalyzers.Web.Components.Shared.ValidationSummary 
+            Title="Validation Failed" 
+            Detail="Please correct the following errors before submitting:"
+            Errors="ValidationErrors" />
+    }
 
     <!-- Success Message -->
     @if (LastAddedPerson != null)
@@ -216,6 +231,7 @@
     private PersonData? LastSubmittedPersonData;
     private bool IsAdding = false;
     private string ErrorMessage = "";
+    private List<PhoneticAnalyzersApiService.ValidationErrorItem>? ValidationErrors;
 
     private readonly List<(string Name, string Id)> SampleNames = new()
     {
@@ -250,8 +266,11 @@
 
     private async Task HandleAddPerson()
     {
+        Console.WriteLine($"[DEBUG] HandleAddPerson called. ExternalId: '{PersonModel.ExternalId}', FullName: '{PersonModel.FullName}'");
+        
         IsAdding = true;
         ErrorMessage = "";
+        ValidationErrors = null;
         LastAddedPerson = null;
         StateHasChanged();
 
@@ -264,14 +283,27 @@
                 ExpandNicknames = PersonModel.ExpandNicknames
             };
 
+            Console.WriteLine($"[DEBUG] Calling API with ExternalId: '{personData.ExternalId}', FullName: '{personData.FullName}'");
+            
             LastAddedPerson = await ApiService.AddPersonAsync(personData);
             LastSubmittedPersonData = personData;
+            
+            Console.WriteLine($"[DEBUG] Person added successfully. PersonId: {LastAddedPerson?.PersonId}");
             
             // Reset form after successful add
             ResetForm();
         }
+        catch (PhoneticAnalyzersApiService.ValidationApiException vex)
+        {
+            Console.WriteLine($"[DEBUG] Validation error: {vex.Message}");
+            // Structured validation errors from API
+            ValidationErrors = vex.Problem?.Errors?.ToList();
+            ErrorMessage = vex.Problem?.Detail ?? "Validation failed";
+        }
         catch (Exception ex)
         {
+            Console.WriteLine($"[DEBUG] Error: {ex.Message}");
+            Console.WriteLine($"[DEBUG] Stack: {ex.StackTrace}");
             ErrorMessage = ex.Message;
         }
         finally
@@ -294,11 +326,19 @@
     {
         PersonModel = new PersonRequest { ExpandNicknames = true };
         ErrorMessage = "";
+        ValidationErrors = null;
     }
 
     private void ClearSuccessMessage()
     {
         LastAddedPerson = null;
         LastSubmittedPersonData = null;
+    }
+    
+    private void TestClick()
+    {
+        Console.WriteLine("[DEBUG] Test button clicked - Blazor is working!");
+        ErrorMessage = $"Test clicked at {DateTime.Now:HH:mm:ss} - Blazor connection is working!";
+        StateHasChanged();
     }
 }
